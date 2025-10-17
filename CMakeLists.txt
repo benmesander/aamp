@@ -242,15 +242,12 @@ if(CMAKE_WPEWEBKIT_JSBINDINGS)
 	message("The WPE WebKit library found is ${WPE_WEBKIT_LINK_LIBRARIES}")
 	# Link WPE WebKit package to aampjsbindings
 	set(LIBAAMPJSBINDINGS_DEPENDS ${LIBAAMPJSBINDINGS_DEPENDS} ${WPE_WEBKIT_LINK_LIBRARIES})
-	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DSUPPORT_JS_EVENTS -DAAMP_WPEWEBKIT_JSBINDINGS")
 
 	set(LIBJSBINDINGS_SOURCES
-		jsbindings/jscontroller-jsbindings.cpp
-		jsbindings/jsbindings.cpp
+		jsbindings/jsbindings-main.cpp
 		jsbindings/jsutils.cpp
 		jsbindings/jsmediaplayer.cpp
 		jsbindings/jseventlistener.cpp
-		jsbindings/jsevent.cpp
 		jsbindings/PersistentWatermark/PersistentWatermark.cpp
 	)
 	if(CMAKE_WPEWEBKIT_WATERMARK_JSBINDINGS)

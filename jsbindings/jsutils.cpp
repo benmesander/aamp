@@ -88,54 +88,6 @@ struct EventTypeMap
 	const char* szName;
 };
 
-
-/**
- * @brief Map AAMP events to its corresponding JS event strings (used by JSPP)
- */
-static EventTypeMap aamp_eventTypes[] =
-{
-	{ (AAMPEventType)0, "onEvent"},
-	{ AAMP_EVENT_TUNED, "tuned"},
-	{ AAMP_EVENT_TUNE_FAILED, "tuneFailed"},
-	{ AAMP_EVENT_SPEED_CHANGED, "speedChanged"},
-	{ AAMP_EVENT_EOS, "eos"},
-	{ AAMP_EVENT_PLAYLIST_INDEXED, "playlistIndexed"},
-	{ AAMP_EVENT_PROGRESS, "progress"},
-	{ AAMP_EVENT_CC_HANDLE_RECEIVED, "decoderAvailable"},
-	{ AAMP_EVENT_JS_EVENT, "jsEvent"},
-	{ AAMP_EVENT_MEDIA_METADATA, "metadata"},
-	{ AAMP_EVENT_ENTERING_LIVE, "enteringLive"},
-	{ AAMP_EVENT_BITRATE_CHANGED, "bitrateChanged"},
-	{ AAMP_EVENT_TIMED_METADATA, "timedMetadata"},
-	{ AAMP_EVENT_BULK_TIMED_METADATA, "bulkTimedMetadata"},
-	{ AAMP_EVENT_STATE_CHANGED, "statusChanged"},
-	{ AAMP_EVENT_SPEEDS_CHANGED, "speedsChanged"},
-	{ AAMP_EVENT_SEEKED, "seeked"},
-	{ AAMP_EVENT_DRM_METADATA, "drmMetadata"},
-	{ AAMP_EVENT_REPORT_ANOMALY, "anomalyReport" },
-	{ AAMP_EVENT_AD_RESOLVED, "adResolved"},
-	{ AAMP_EVENT_AD_RESERVATION_START, "reservationStart" },
-	{ AAMP_EVENT_AD_RESERVATION_END, "reservationEnd" },
-	{ AAMP_EVENT_AD_PLACEMENT_START, "placementStart" },
-	{ AAMP_EVENT_AD_PLACEMENT_END, "placementEnd" },
-	{ AAMP_EVENT_AD_PLACEMENT_PROGRESS, "placementProgress" },
-	{ AAMP_EVENT_AD_PLACEMENT_ERROR, "placementError" },
-	{ AAMP_EVENT_REPORT_METRICS_DATA, "metricsData" },
-	{ AAMP_EVENT_BUFFERING_CHANGED, "bufferingChanged"},
-	{ AAMP_EVENT_ID3_METADATA, "id3Metadata"},
-	{ AAMP_EVENT_DRM_MESSAGE, "drmMessage" },
-	{ AAMP_EVENT_AUDIO_TRACKS_CHANGED, "audioTracksChanged"},
-	{ AAMP_EVENT_TEXT_TRACKS_CHANGED, "textTracksChanged"},
-	{ AAMP_EVENT_CONTENT_GAP, "contentGap" },
-	{ AAMP_EVENT_CONTENT_PROTECTION_DATA_UPDATE, "contentProtectionDataUpdate" },
-	{ AAMP_EVENT_MANIFEST_REFRESH_NOTIFY, "manifestRefresh"},
-	{ AAMP_EVENT_TUNE_TIME_METRICS, "tuneMetricsData" },
-	{ AAMP_EVENT_NEED_MANIFEST_DATA, "needManifest" },
-	{ AAMP_EVENT_MONITORAV_STATUS, "monitorAVStatus"},
-	{ (AAMPEventType)0, "" }
-};
-
-
 /**
  * @brief Map AAMP events to its corresponding JS event strings (used by AAMPMediaPlayer/UVE APIs)
  */
@@ -365,26 +317,6 @@ JSValueRef aamp_GetException(JSContextRef context, ErrorCode error, const char *
 }
 
 /**
- * @brief Convert JS event name to AAMP event type
- */
-AAMPEventType aamp_getEventTypeFromName(const char* szName)
-{
-	AAMPEventType eventType = AAMP_MAX_NUM_EVENTS;
-	int numEvents = sizeof(aamp_eventTypes) / sizeof(aamp_eventTypes[0]);
-
-	for (int i=0; i<numEvents; i++)
-	{
-		if (strcasecmp(aamp_eventTypes[i].szName, szName) == 0)
-		{
-			eventType = aamp_eventTypes[i].eventType;
-			break;
-		}
-	}
-
-	return eventType;
-}
-
-/**
  * @brief To dispatch a JS event
  */
 void aamp_dispatchEventToJS(JSContextRef context, JSObjectRef callback, JSObjectRef event)
@@ -432,7 +364,6 @@ const char* aampPlayer_getNameFromEventType(AAMPEventType type)
 		return NULL;
 	}
 }
-
 
 /**
  * @brief Create a TimedMetadata JS object with args passed.

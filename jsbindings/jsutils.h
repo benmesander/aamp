@@ -26,7 +26,6 @@
 
 #include "main_aamp.h"
 #include "AampUtils.h"
-
 #include <JavaScriptCore/JavaScript.h>
 #include <stdio.h>
 #include <string.h>
@@ -122,13 +121,6 @@ std::vector<std::string> aamp_StringArrayToCStringArray(JSContextRef context, JS
  * @retval JSValue object with exception details
  */
 JSValueRef aamp_GetException(JSContextRef context, ErrorCode error, const char *additionalInfo);
-
-/**
- * @fn aamp_getEventTypeFromName
- * @param[in] szName JS event name
- * @retval AAMPEventType of corresponding AAMP event
- */
-AAMPEventType aamp_getEventTypeFromName(const char* szName);
 
 /**
  * @fn aamp_dispatchEventToJS

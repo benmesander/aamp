@@ -24,10 +24,58 @@
 
 
 #include "jseventlistener.h"
-#include "jsevent.h"
 #include "jsutils.h"
 #include "vttCue.h"
 
+/**
+ * @brief Structure contains properties and callbacks of Event object of AAMPMediaPlayer
+ */
+static const JSClassDefinition AAMPJSEvent_object_def =
+{
+	0,
+	kJSClassAttributeNone,
+	"__Event_AAMPJS",
+	NULL,
+	NULL,
+	NULL,
+	NULL,
+	NULL,
+	NULL,
+	NULL,
+	NULL,
+	NULL,
+	NULL,
+	NULL,
+	NULL,
+	NULL,
+	NULL
+};
+
+/**
+ * @brief To get AAMPJSEvent class reference
+ * @retval JSClassRef of AAMPJSEvent
+ */
+static JSClassRef AAMPJSEvent_class_ref()
+{
+	static JSClassRef classDef = NULL;
+	if (!classDef)
+	{
+		classDef = JSClassCreate(&AAMPJSEvent_object_def);
+	}
+	return classDef;
+}
+
+/**
+ * @brief To create a new JS event instance
+ * @param[in] ctx JS execution context
+ * @param[in] type event type
+ * @retval JSObject of the new instance created
+ */
+JSObjectRef createNewAAMPJSEvent(JSGlobalContextRef ctx, const char *type)
+{
+	JSObjectRef eventObj = JSObjectMake(ctx, AAMPJSEvent_class_ref(), NULL);
+	return eventObj;
+}
 
 /**
  * @class AAMP_Listener_PlaybackStateChanged
@@ -1760,7 +1808,7 @@ void AAMP_JSEventListener::Event(const AAMPEventPtr& e)
 	{
 		return;
 	}
-	JSObjectRef event = createNewAAMPJSEvent(p_obj->_ctx, aampPlayer_getNameFromEventType(evtType), false, false);
+	JSObjectRef event = createNewAAMPJSEvent(p_obj->_ctx, aampPlayer_getNameFromEventType(evtType));
 	if (event)
 	{
 		JSGlobalContextRef ctx = p_obj->_ctx;
@@ -2000,5 +2048,4 @@ void AAMP_JSEventListener::RemoveAllEventListener(PrivAAMPStruct_JS * obj)
 	}
 
 	obj->_listeners.clear();
-
 }

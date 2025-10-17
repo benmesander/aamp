@@ -23,9 +23,7 @@
  */
 
 #include "AampUtils.h"
-
-#include "jsbindings-version.h"
-#include "jsbindings.h"
+#include "jsbindings-main.h"
 #include "jsutils.h"
 #include "jseventlistener.h"
 #include "PersistentWatermark.h"
@@ -35,7 +33,10 @@
 #include <vector>
 #include "CCTrackInfo.h"
 #include "PlayerCCManager.h"
+#include "AampDefine.h"
 
+// AAMP_UVE_VERSION
+#define AAMP_UNIFIED_VIDEO_ENGINE_VERSION AAMP_VERSION
 
 extern "C"
 {
@@ -3886,6 +3887,53 @@ void ClearAAMPPlayerInstances(void)
 	}
 }
 
+/**
+ * @brief Callback invoked from JS when reading value of AAMP.version
+ * @param[in] context JS execution context
+ * @param[in] thisObject JSObject to search for the property
+ * @param[in] propertyName JSString containing the name of the property to get
+ * @param[out] exception pointer to a JSValueRef in which to return an exception, if any
+ * @retval property's value if object has the property, otherwise NULL
+ */
+static JSValueRef AAMP_getProperty_Version(JSContextRef context, JSObjectRef thisObject, JSStringRef propertyName, JSValueRef* exception)
+{
+	LOG_TRACE("Enter");
+	return aamp_CStringToJSValue(context, AAMP_UNIFIED_VIDEO_ENGINE_VERSION);
+}
+
+/**
+ * @brief Array containing the global AAMP's statically declared value properties
+ */
+static const JSStaticValue AAMP_static_values[] =
+{
+	{"version", AAMP_getProperty_Version, NULL, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly },
+	{NULL, NULL, NULL, 0}
+};
+
+/**
+ * @brief Structure contains properties and callbacks of global AAMP JS object
+ */
+static const JSClassDefinition AAMP_class_def =
+{
+	0,
+	kJSClassAttributeNone,
+	"__AAMP__class",
+	NULL,
+	AAMP_static_values,
+	NULL,
+	NULL,
+	NULL,
+	NULL,
+	NULL,
+	NULL,
+	NULL,
+	NULL,
+	NULL,
+	NULL,
+	NULL,
+	NULL
+};
+
 class XREReceiver_onEventHandler
 {
 public:
@@ -4037,7 +4085,6 @@ std::unordered_map<std::string, XREReceiver_onEventHandler::Handler_t>  XRERecei
  */
 JSValueRef XREReceiverJS_onevent (JSContextRef ctx, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
 {
-
 	LOG_WARN_EX("[XREReceiver]: arg count - %zu", argumentCount);
 
 	if (argumentCount > 0)
@@ -4072,17 +4119,15 @@ static const JSStaticFunction XREReceiver_JS_static_functions[] =
  */
 JSObjectRef XREReceiver_JS_class_constructor(JSContextRef ctx, JSObjectRef constructor, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
 {
-        LOG_TRACE("Enter");
+	LOG_TRACE("Enter");
 	*exception = aamp_GetException(ctx, AAMPJS_GENERIC_ERROR, "Cannot create an object of XREReceiver");
-        LOG_TRACE("Exit");
+	LOG_TRACE("Exit");
 	return NULL;
 }
 
 static void XREReceiver_JS_finalize(JSObjectRef thisObject)
 {
-
-       LOG_TRACE("object=%p", thisObject);
-
+	LOG_TRACE("object=%p", thisObject);
 }
 
 static JSClassDefinition XREReceiver_JS_class_def {
@@ -4107,8 +4152,7 @@ static JSClassDefinition XREReceiver_JS_class_def {
 
 void LoadXREReceiverStub(void* context)
 {
-
-        LOG_TRACE(" context = %p", context);
+	LOG_TRACE(" context = %p", context);
 
 	JSGlobalContextRef jsContext = (JSGlobalContextRef)context;
 
@@ -4132,17 +4176,25 @@ void AAMPPlayer_LoadJS(void* context)
    	LOG_WARN_EX("context = %p", context);
 	JSGlobalContextRef jsContext = (JSGlobalContextRef)context;
 
-	JSObjectRef globalObj = JSContextGetGlobalObject(jsContext);
+	JSObjectRef globalJSObj = JSContextGetGlobalObject(jsContext);
 
 	JSClassRef mediaPlayerClass = JSClassCreate(&AAMPMediaPlayer_JS_class_def);
 	JSObjectRef classObj = JSObjectMakeConstructor(jsContext, mediaPlayerClass, AAMPMediaPlayer_JS_class_constructor);
 	JSValueProtect(jsContext, classObj);
 
 	JSStringRef str = JSStringCreateWithUTF8CString("AAMPMediaPlayer");
-	JSObjectSetProperty(jsContext, globalObj, str, classObj, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete, NULL);
+	JSObjectSetProperty(jsContext, globalJSObj, str, classObj, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete, NULL);
 
 	JSClassRelease(mediaPlayerClass);
 	JSStringRelease(str);
+
+	// Add the global AAMP JS object to JS context. This can be used to query the AAMP.version
+	JSClassRef gAAMPClass = JSClassCreate(&AAMP_class_def);
+	JSObjectRef gAAMPObj = JSObjectMake(jsContext, gAAMPClass, NULL);
+	JSStringRef gAAMPStr = JSStringCreateWithUTF8CString("AAMP");
+	JSObjectSetProperty(jsContext, globalJSObj, gAAMPStr, gAAMPObj, kJSPropertyAttributeReadOnly, NULL);
+	JSStringRelease(gAAMPStr);
+	JSClassRelease(gAAMPClass);
 
 	PersistentWatermark_LoadJS(context);
 	LoadXREReceiverStub(context);
@@ -4155,8 +4207,7 @@ void AAMPPlayer_LoadJS(void* context)
  */
 void AAMPPlayer_UnloadJS(void* context)
 {
-
-    	LOG_WARN_EX("context=%p", context);
+	LOG_WARN_EX("context=%p", context);
 
 	JSValueRef exception = NULL;
 	JSGlobalContextRef jsContext = (JSGlobalContextRef)context;
@@ -4200,3 +4251,15 @@ void AAMPPlayer_UnloadJS(void* context)
 	JSGarbageCollect(jsContext);
 	LOG_TRACE("Exit");
 }
+
+#ifdef __GNUC__
+/**
+ * @brief Stops any prevailing AAMP instances before exit of program
+ */
+void __attribute__ ((destructor(101))) _aamp_term()
+{
+	LOG_TRACE("Enter");
+	//Clear any active js mediaplayer instances on term
+	ClearAAMPPlayerInstances();
+}
+#endif
