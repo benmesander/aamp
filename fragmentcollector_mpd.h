@@ -1238,10 +1238,19 @@ protected:
 	*/
 	void ProcessVssLicenseRequest();
 	/**
+	* @fn ProcessEarlyAvailablePeriod
+	*/
+	void ProcessEarlyAvailablePeriod(ManifestDownloadResponsePtr mpdDnldResp);
+	/**
 	* @fn GetAvailableVSSPeriods
 	* @param PeriodIds VSS Periods
 	*/
 	void GetAvailableVSSPeriods(std::vector<IPeriod*>& PeriodIds);
+	/**
+	* @fn GetEarlyAvailablePeriods
+	* @param PeriodIds Non-VSS early available periods
+	*/
+	void GetEarlyAvailablePeriods(std::vector<IPeriod*>& PeriodIds, AampMPDParseHelperPtr mpdParseHelper);
 	/**
 	* @fn GetVssVirtualStreamID
 	*/

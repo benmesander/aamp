@@ -216,7 +216,9 @@ protected:
 			{eAAMPConfig_InterruptHandling, false},
 			{eAAMPConfig_EnableLowLatencyCorrection, true},
 			{eAAMPConfig_EnableLowLatencyDash, true},
-			{eAAMPConfig_UseMp4Demux, false} };
+			{eAAMPConfig_UseMp4Demux, false},
+			{eAAMPConfig_DetectEarlyAvailablePeriod, false} };
+
 
 	BoolConfigSettings mBoolConfigSettings;
 
