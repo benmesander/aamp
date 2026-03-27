@@ -684,6 +684,34 @@ protected:
 		*/
 		void SetIsFogTSB(bool value) { mIsFogTSB = value; }
 		void SetAdPlayingFromCDN(bool value) { mAdPlayingFromCDN = value; }
+
+		/**
+		 * @brief Test-only accessors for PTS restamping state.
+		 */
+		void SetNextPtsForTest(double ptsSeconds) { mNextPts = AampTime(ptsSeconds); }
+		double GetNextPtsForTest() const { return mNextPts.inSeconds(); }
+		void SetBasePeriodIdForTest(const std::string &periodId) { mBasePeriodId = periodId; }
+		void SetMediaStreamContextForTest(AampMediaType type, MediaStreamContext *ctx)
+		{
+			mMediaStreamContext[type] = ctx;
+		}
+		void SetMpdForTest(dash::mpd::IMPD *mpdPtr)
+		{
+			mpd = mpdPtr;
+		}
+		void SetCurrentPeriodForTest(dash::mpd::IPeriod *period)
+		{
+			mCurrentPeriod = period;
+		}
+
+		/**
+		 * @brief Test-only wrapper to invoke the full
+		 *        AdjustPtsOffsetAfterAdCancellation implementation.
+		 */
+		void CallAdjustPtsOffsetAfterAdCancellationCore()
+		{
+			AdjustPtsOffsetAfterAdCancellation();
+		}
 	};
 
 	PrivateInstanceAAMP *mPrivateInstanceAAMP;
@@ -738,7 +766,6 @@ protected:
 		g_mockAampConfig = nullptr;
 	}
 };
-
 /**
  * @brief Functional tests class.
  */
@@ -2536,6 +2563,99 @@ TEST_F(StreamAbstractionAAMP_MPDTest, GetAvailableVSSPeriodsTest)
 TEST_F(StreamAbstractionAAMP_MPDTest, GetVssVirtualStreamIDTest)
 {
 	std::string result = mStreamAbstractionAAMP_MPD->CallGetVssVirtualStreamID();
+}
+
+/**
+ * @brief Verify that AdjustPtsOffsetAfterAdCancellation updates mNextPts
+ *        based on the maximum of audio/video fragment time deltas from the
+ *        ad break start time.
+ */
+TEST_F(StreamAbstractionAAMP_MPDTest, AdjustPtsOffsetAfterAdCancellation_UpdatesNextPts)
+{
+	// Minimal MPD to provide a valid Period for PTS restamping logic.
+	static const char *manifest = R"(<?xml version="1.0"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011">
+<Period id="p0"><AdaptationSet><Representation/></AdaptationSet></Period>
+</MPD>)";
+
+	// Use existing helper to parse the MPD and populate an IMPD instance.
+	mManifest = manifest;
+	ManifestDownloadResponsePtr respData = GetManifestForMPDDownloader();
+	ASSERT_NE(respData, nullptr);
+	ASSERT_NE(respData->mMPDInstance, nullptr);
+
+	// Wire MPD and current period into the test instance via
+	// test-only setters so that RestorePtsOffsetCalculation() /
+	// GetStartAndDurationForPtsRestamping have valid context
+	// without accessing protected members directly.
+	dash::mpd::IMPD *mpd = respData->mMPDInstance.get();
+	mStreamAbstractionAAMP_MPD->SetMpdForTest(mpd);
+	mStreamAbstractionAAMP_MPD->SetCurrentPeriodForTest(
+		mpd->GetPeriods().at(0));
+
+	// Set up CDAI object and ad break state directly on the internal CDAI object.
+	// We rely on the fake CDAI implementation (FakeAdManager) which exposes the
+	// same data members as the production PrivateCDAIObjectMPD.
+	CDAIObjectMPD cdaiObj(mPrivateInstanceAAMP);
+	mStreamAbstractionAAMP_MPD->SetCDAIObject(&cdaiObj);
+
+	PrivateCDAIObjectMPD *cdaiPriv = cdaiObj.GetPrivateCDAIObjectMPD();
+	ASSERT_NE(cdaiPriv, nullptr);
+
+	const std::string periodId = "p0";
+	AdBreakObject adBreakObj;
+	adBreakObj.mAbsoluteAdBreakStartTime = AampTime(10.0); // 10s
+	cdaiPriv->mAdBreaks[periodId] = adBreakObj;
+	cdaiPriv->mCurPlayingBreakId = periodId;
+
+	// Single ad in the break with basePeriodOffset set so that
+	// periodStartTime = 12s (10s + 2000ms/1000).
+	AdNodeVectorPtr ads = std::make_shared<std::vector<AdNode>>();
+	AdNode adNode;
+	adNode.basePeriodId = periodId;
+	adNode.basePeriodOffset = 2000; // milliseconds
+	ads->push_back(adNode);
+	cdaiPriv->mCurAds = ads;
+	cdaiPriv->mCurAdIdx = 0;
+	cdaiPriv->mAdState = AdState::IN_ADBREAK_WAIT2CATCHUP;
+	cdaiPriv->mAdBreaks[periodId].ads = ads;
+
+	// Ensure StreamAbstractionAAMP_MPD uses the same base period id.
+	mStreamAbstractionAAMP_MPD->SetBasePeriodIdForTest(periodId);
+
+	// Set up media stream contexts with known fragment times.
+	// Use RAII to ensure these contexts are cleaned up even though
+	// StreamAbstractionAAMP_MPD's destructor will not delete them in this
+	// fixture (mMaxTracks remains 0).
+	std::unique_ptr<MediaStreamContext> videoCtx{
+		new MediaStreamContext(eTRACK_VIDEO, mStreamAbstractionAAMP_MPD,
+			mPrivateInstanceAAMP, "video")};
+	std::unique_ptr<MediaStreamContext> audioCtx{
+		new MediaStreamContext(eTRACK_AUDIO, mStreamAbstractionAAMP_MPD,
+			mPrivateInstanceAAMP, "audio")};
+
+	// Set fragment times such that video delta (3s) is larger than audio delta (1s).
+	videoCtx->fragmentTime = 15.0; // 3s after periodStartTime (12s)
+	audioCtx->fragmentTime = 13.0; // 1s after periodStartTime
+
+	mStreamAbstractionAAMP_MPD->SetMediaStreamContextForTest(
+		eMEDIATYPE_VIDEO, videoCtx.get());
+	mStreamAbstractionAAMP_MPD->SetMediaStreamContextForTest(
+		eMEDIATYPE_AUDIO, audioCtx.get());
+
+	// Initialize mNextPts to the period start time (12s) so that after
+	// adjustment it becomes 15s.
+	const double initialNextPtsSeconds = 12.0;
+	mStreamAbstractionAAMP_MPD->SetNextPtsForTest(initialNextPtsSeconds);
+
+	// Invoke the full PTS adjustment logic (including
+	// RestorePtsOffsetCalculation()), with MPD interactions mocked
+	// above to keep mNextPts restoration a no-op.
+	mStreamAbstractionAAMP_MPD->CallAdjustPtsOffsetAfterAdCancellationCore();
+
+	// Validate that mNextPts advanced by the maximum delta (3s).
+	double updatedPtsSeconds = mStreamAbstractionAAMP_MPD->GetNextPtsForTest();
+	EXPECT_DOUBLE_EQ(updatedPtsSeconds, initialNextPtsSeconds + 3.0);
 }
 
 
