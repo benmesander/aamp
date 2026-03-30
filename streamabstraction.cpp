@@ -880,7 +880,7 @@ bool MediaTrack::CheckForDiscontinuity(CachedFragment* cachedFragment, bool& fra
 					AAMPLOG_WARN("Pipeline not yet configured for %s! Process discontinuity...", name);
 				}
 
-				if(ISCONFIGSET(eAAMPConfig_EnablePTSReStamp) && (aamp->mVideoFormat == FORMAT_ISO_BMFF ))
+				if(ISCONFIGSET(eAAMPConfig_EnablePTSReStamp) && ((aamp->mVideoFormat == FORMAT_ISO_BMFF) || ISCONFIGSET(eAAMPConfig_UseMp4Demux)))
 				{
 					if (context->GetESChangeStatus() || context->GetPipelineFlushStatus())
 					{
